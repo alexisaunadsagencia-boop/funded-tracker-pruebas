@@ -4768,7 +4768,8 @@ function _rwEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/<
 function _rwVal(id){ const e=document.getElementById(id); return e?(e.value||'').trim():''; }
 function _coin(sz){ return '<svg viewBox="0 0 24 24" width="'+sz+'" height="'+sz+'" style="vertical-align:middle;margin:0 1px"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg>'; }
 
-window._tokens = { coins:0, lastClaim:null };
+window._tokens = { streak:0, spent:0, lastClaim:null };
+function _rwAvail(){ return Math.max(0,(window._tokens.streak||0)-(window._tokens.spent||0)); }
 window._rewards = [];
 window._canjes = [];
 
@@ -4784,11 +4785,10 @@ function playCoinSound(){
     o.connect(g); g.connect(ctx.destination); o.start(t0+s); o.stop(t0+s+d+0.03); }
   blip(987.77, 0, 0.09); blip(1318.51, 0.09, 0.18);   // tipo "moneda"
 }
-window.playCoinSound = playCoinSound;
 
 // ---- carga / guardado ----
-async function _rwLoadTokens(){ if(!window._user) return; try{ const s=await getDoc(doc(db5,'tokens',window._user.uid)); window._tokens=s.exists()?s.data():{coins:0,lastClaim:null}; }catch(e){ console.warn('tokens load',e); } }
-async function _rwSaveTokens(){ if(!window._user) return; try{ await setDoc(doc(db5,'tokens',window._user.uid),{coins:window._tokens.coins||0,lastClaim:window._tokens.lastClaim||null}); }catch(e){ console.warn('tokens save',e); } }
+async function _rwLoadTokens(){ if(!window._user) return; try{ const s=await getDoc(doc(db5,'tokens',window._user.uid)); const d=s.exists()?s.data():{}; window._tokens={ streak:(d.streak!=null?d.streak:(d.coins||0)), spent:(d.spent||0), lastClaim:(d.lastClaim||null) }; }catch(e){ console.warn('tokens load',e); } }
+async function _rwSaveTokens(){ if(!window._user) return; try{ await setDoc(doc(db5,'tokens',window._user.uid),{streak:window._tokens.streak||0,spent:window._tokens.spent||0,lastClaim:window._tokens.lastClaim||null}); }catch(e){ console.warn('tokens save',e); } }
 async function _rwLoadRewards(){ try{ const snap=await getDocs(collection(db5,'recompensas')); window._rewards=snap.docs.map(d=>Object.assign({id:d.id}, d.data())); }catch(e){ window._rewards=[]; } }
 async function _rwLoadCanjes(){ if(!rewIsAdmin()){ window._canjes=[]; return; } try{ const q=query(collection(db5,'canjes'),orderBy('fecha','desc')); const snap=await getDocs(q); window._canjes=snap.docs.map(d=>d.data()); }catch(e){ window._canjes=[]; } }
 
@@ -4798,15 +4798,15 @@ window.claimDailyToken = async function(){
   await _rwLoadTokens();
   const t=_rwToday();
   if(window._tokens.lastClaim===t){ updateCoinBadge(); return; }
-  const prev=window._tokens.coins||0;
-  if(window._tokens.lastClaim && _rwDiff(window._tokens.lastClaim,t)===1) window._tokens.coins=prev+1; else window._tokens.coins=1;
+  if(window._tokens.lastClaim && _rwDiff(window._tokens.lastClaim,t)===1){ window._tokens.streak=(window._tokens.streak||0)+1; }
+  else { window._tokens.streak=1; window._tokens.spent=0; }   // racha rota: reinicia racha y monedas
   window._tokens.lastClaim=t;
   await _rwSaveTokens();
   updateCoinBadge();
-  showCoinToast(window._tokens.coins);
+  showCoinToast(window._tokens.streak);
   playCoinSound();
 };
-window.updateCoinBadge=function(){ const b=document.getElementById('coin-badge'); if(b) b.textContent=(window._tokens&&window._tokens.coins)?window._tokens.coins:0; };
+window.updateCoinBadge=function(){ const b=document.getElementById('coin-badge'); if(b) b.textContent=_rwAvail(); };
 
 function showCoinToast(n){
   let el=document.getElementById('coin-toast');
@@ -4824,7 +4824,8 @@ window.refreshRecompensas=async function(){ await _rwLoadTokens(); await _rwLoad
 
 window.renderRecompensas=function(){
   const pane=document.getElementById('pane-recompensas'); if(!pane) return;
-  const coins=(window._tokens&&window._tokens.coins)||0;
+  const coins=_rwAvail();
+  const streak=(window._tokens&&window._tokens.streak)||0;
   const all=window._rewards||[];
   const active=all.filter(r=>r.activo);
 
@@ -4835,7 +4836,7 @@ window.renderRecompensas=function(){
         + '<div style="line-height:1">'+_coin(60)+'</div>'
         + '<div style="font-size:46px;font-weight:800;color:var(--accent);line-height:1.1;margin-top:6px">'+coins+'</div>'
         + '<div style="color:var(--muted);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em">monedas</div>'
-        + '<div style="margin-top:10px;color:var(--yellow);font-size:14px;font-weight:600">🔥 '+coins+' días seguidos</div>'
+        + '<div style="margin-top:10px;color:var(--yellow);font-size:14px;font-weight:600">🔥 '+streak+' días seguidos</div>'
         + '</div>';
 
   // RECOMPENSAS DISPONIBLES
@@ -4906,10 +4907,10 @@ window.redeemReward = async function(id){
   await _rwLoadRewards(); await _rwLoadTokens();
   const r=(window._rewards||[]).find(x=>x.id===id);
   if(!r || !r.activo){ alert('Esa recompensa ya no está disponible.'); renderRecompensas(); return; }
-  const coins=window._tokens.coins||0;
-  if(coins < (r.costo||0)){ alert('Aún no tienes suficientes monedas para esta recompensa.'); renderRecompensas(); return; }
+  const avail=_rwAvail();
+  if(avail < (r.costo||0)){ alert('Aún no tienes suficientes monedas para esta recompensa.'); renderRecompensas(); return; }
   if(!confirm('¿Canjear "'+r.titulo+'" por '+r.costo+' monedas? Te llevaremos a WhatsApp para coordinar la entrega.')) return;
-  window._tokens.coins = coins - (r.costo||0);
+  window._tokens.spent = (window._tokens.spent||0) + (r.costo||0);   // gasta monedas, la racha NO cambia
   await _rwSaveTokens();
   try{ await addDoc(collection(db5,'canjes'), { uid:window._user.uid, nombre:window._user.displayName||'', email:window._user.email||'', recompensa:r.titulo||'', costo:r.costo||0, fecha:new Date().toISOString() }); }catch(e){ console.warn('canje', e); }
   updateCoinBadge();
