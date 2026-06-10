@@ -711,6 +711,7 @@ body.light .note-card.color-orange:hover{border-color:rgba(210,110,0,.6)!importa
     <div class="logo-sub" onclick="window.open('https://www.instagram.com/nqproject.oficial/','_blank')" title="Instagram NQ Project">NQ PROJECT</div>
   </div>
   <div class="hdr-right">
+  <div id="streak-badge" title="Días seguidos en la plataforma" style="display:none;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(255,140,0,.16),rgba(255,90,0,.06));border:1px solid rgba(255,140,0,.4);padding:6px 13px;border-radius:99px;font-weight:800;font-size:14px;color:#ff9b3d;margin-right:2px">🔥 <span id="streak-count">0</span></div>
   <div class="theme-btn" id="theme-btn" onclick="toggleTheme()">&#127769;</div>
     <button class="btn btn-g" onclick="openTradeModal()">+ TRADE</button>
     <button class="btn btn-p" onclick="newAccountModal()">+ CUENTA</button>
@@ -4797,16 +4798,18 @@ window.claimDailyToken = async function(){
   if(!window._user) return;
   await _rwLoadTokens();
   const t=_rwToday();
-  if(window._tokens.lastClaim===t){ updateCoinBadge(); return; }
+  if(window._tokens.lastClaim===t){ updateCoinBadge(); updateStreakBadge(); return; }
   if(window._tokens.lastClaim && _rwDiff(window._tokens.lastClaim,t)===1){ window._tokens.streak=(window._tokens.streak||0)+1; }
   else { window._tokens.streak=1; window._tokens.spent=0; }   // racha rota: reinicia racha y monedas
   window._tokens.lastClaim=t;
   await _rwSaveTokens();
   updateCoinBadge();
+  updateStreakBadge();
   showCoinToast(window._tokens.streak);
   playCoinSound();
 };
 window.updateCoinBadge=function(){ const b=document.getElementById('coin-badge'); if(b) b.textContent=_rwAvail(); };
+window.updateStreakBadge=function(){ const e=document.getElementById('streak-count'); if(e) e.textContent=(window._tokens&&window._tokens.streak)||0; const w=document.getElementById('streak-badge'); if(w) w.style.display=((window._tokens&&window._tokens.streak)>0)?'flex':'none'; };
 
 function showCoinToast(n){
   let el=document.getElementById('coin-toast');
@@ -4820,7 +4823,7 @@ function showCoinToast(n){
 }
 
 // ---- refrescar + render ----
-window.refreshRecompensas=async function(){ await _rwLoadTokens(); await _rwLoadRewards(); await _rwLoadCanjes(); renderRecompensas(); };
+window.refreshRecompensas=async function(){ await _rwLoadTokens(); await _rwLoadRewards(); await _rwLoadCanjes(); updateCoinBadge(); updateStreakBadge(); renderRecompensas(); };
 
 window.renderRecompensas=function(){
   const pane=document.getElementById('pane-recompensas'); if(!pane) return;
@@ -4836,28 +4839,28 @@ window.renderRecompensas=function(){
         + '<div style="line-height:1">'+_coin(60)+'</div>'
         + '<div style="font-size:46px;font-weight:800;color:var(--accent);line-height:1.1;margin-top:6px">'+coins+'</div>'
         + '<div style="color:var(--muted);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em">monedas</div>'
-        + '<div style="margin-top:10px;color:var(--yellow);font-size:14px;font-weight:600">🔥 '+streak+' días seguidos</div>'
         + '</div>';
 
   // RECOMPENSAS DISPONIBLES
-  html += '<div class="card" style="margin-top:16px"><div class="ct">🎁 Recompensas disponibles</div>';
+  html += '<div style="margin-top:22px;margin-bottom:14px"><span style="font-size:20px;font-weight:800;color:var(--text)">🎁 Recompensas disponibles</span></div>';
   if(!active.length){
-    html += '<div style="text-align:center;color:var(--muted2);padding:10px 0"><div style="font-size:38px">⏳</div><div style="font-weight:700;color:var(--text);margin-top:6px">Aún no hay recompensas disponibles</div><div style="font-size:13px;margin-top:6px">¡Sigue entrando cada día y acumulando monedas!</div></div>';
+    html += '<div class="card" style="text-align:center;color:var(--muted2);padding:28px 16px"><div style="font-size:42px">⏳</div><div style="font-weight:700;color:var(--text);margin-top:8px;font-size:16px">Aún no hay recompensas disponibles</div><div style="font-size:13px;margin-top:6px">¡Sigue entrando cada día y acumulando monedas!</div></div>';
   } else {
     html += '<div class="g2">';
     active.forEach(r=>{
       const cost=r.costo||0, can=coins>=cost, falta=Math.max(0,cost-coins);
-      html += '<div style="border:1px solid var(--border2);border-radius:14px;padding:16px;display:flex;flex-direction:column;background:rgba(0,229,122,.03)">'
-            + '<div style="font-size:17px;font-weight:700;color:var(--text)">'+_rwEsc(r.titulo||'')+'</div>'
-            + (r.descripcion?'<div style="color:var(--muted2);font-size:13px;margin-top:5px;line-height:1.55">'+_rwEsc(r.descripcion)+'</div>':'')
-            + '<div style="margin:12px 0;font-family:var(--mono);font-size:14px">Costo: <b style="color:var(--accent)">'+cost+' '+_coin(15)+'</b></div>'
-            + '<button onclick="redeemReward(\''+r.id+'\')" '+(can?'':'disabled')+' style="margin-top:auto;background:'+(can?'#25D366':'var(--s2)')+';color:'+(can?'#fff':'var(--muted)')+';border:none;padding:12px 16px;border-radius:11px;font-weight:700;cursor:'+(can?'pointer':'not-allowed')+';font-family:var(--font);font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px">'
-            + (can?'<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.523 5.26l-.999 3.648 3.965-1.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg> Canjear':'Te faltan '+falta+' monedas')
-            + '</button></div>';
+      html += '<div onmouseover="this.style.transform=\'translateY(-4px)\';this.style.boxShadow=\'0 18px 44px rgba(0,229,122,.13)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 8px 30px rgba(0,0,0,.35)\'" style="position:relative;border:1px solid var(--border2);border-radius:18px;overflow:hidden;background:linear-gradient(160deg,rgba(0,229,122,.08),rgba(0,0,0,0));box-shadow:0 8px 30px rgba(0,0,0,.35);transition:transform .2s,box-shadow .2s;display:flex;flex-direction:column">'
+            + '<div style="height:5px;background:linear-gradient(90deg,#00b894,#00e57a)"></div>'
+            + '<div style="padding:22px;display:flex;flex-direction:column;flex:1">'
+            + '<div style="display:flex;align-items:center;gap:13px;margin-bottom:12px"><div style="width:50px;height:50px;border-radius:14px;background:rgba(0,229,122,.12);border:1px solid rgba(0,229,122,.25);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🎁</div><div style="font-size:20px;font-weight:800;color:var(--text);line-height:1.2">'+_rwEsc(r.titulo||'')+'</div></div>'
+            + (r.descripcion?'<div style="color:var(--muted2);font-size:14px;line-height:1.6;margin-bottom:18px">'+_rwEsc(r.descripcion)+'</div>':'<div style="margin-bottom:14px"></div>')
+            + '<div style="display:inline-flex;align-items:center;gap:7px;align-self:flex-start;background:var(--s2);border:1px solid var(--border2);padding:7px 14px;border-radius:99px;font-family:var(--mono);font-size:15px;font-weight:700;margin-bottom:18px"><span style="color:var(--muted);font-weight:400;font-size:13px">Cuesta</span> '+cost+' '+_coin(17)+'</div>'
+            + '<button onclick="redeemReward(\''+r.id+'\')" '+(can?'':'disabled')+' style="margin-top:auto;background:'+(can?'#25D366':'var(--s2)')+';color:'+(can?'#fff':'var(--muted)')+';border:none;padding:14px 18px;border-radius:12px;font-weight:700;cursor:'+(can?'pointer':'not-allowed')+';font-family:var(--font);font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:'+(can?'0 6px 18px rgba(37,211,102,.3)':'none')+'">'
+            + (can?'<svg viewBox="0 0 24 24" fill="currentColor" width="19" height="19"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.523 5.26l-.999 3.648 3.965-1.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg> Canjear ahora':'🔒 Te faltan '+falta+' monedas')
+            + '</button></div></div>';
     });
     html += '</div>';
   }
-  html += '</div>';
 
   // ADMIN
   if(rewIsAdmin()){
