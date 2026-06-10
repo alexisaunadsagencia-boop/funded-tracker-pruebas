@@ -4753,219 +4753,198 @@ function renderCalculadora(){ onCalcInstrumentChange(); }
 
 <!-- ===== NQ — Sistema de Recompensas (monedas diarias estilo Duolingo) ===== -->
 <script type="module">
-import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 const db5 = getFirestore(getApp());
 
 const REW_ADMIN_UID = 'Y1yAXDmeCKQ5IB3AupXR7KWLFlK2';
+const WHATSAPP_NUMBER = '573207599156';   // <-- número de WhatsApp para los canjes (CONFIRMAR)
 function rewIsAdmin(){ return window._user && window._user.uid === REW_ADMIN_UID; }
 
-// ---- fechas (día local) ----
 function _rwToday(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function _rwYmd(s){ const p=String(s).split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
 function _rwDiff(a,b){ return Math.round((_rwYmd(b)-_rwYmd(a))/86400000); }
+function _rwEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _rwVal(id){ const e=document.getElementById(id); return e?(e.value||'').trim():''; }
+function _coin(sz){ return '<svg viewBox="0 0 24 24" width="'+sz+'" height="'+sz+'" style="vertical-align:middle;margin:0 1px"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg>'; }
 
-// ---- estado global ----
 window._tokens = { coins:0, lastClaim:null };
-window._activeReward = null;
+window._rewards = [];
 window._canjes = [];
 
-// ---- carga / guardado (colecciones aisladas) ----
-async function _rwLoadTokens(){
-  if(!window._user) return;
-  try{ const s=await getDoc(doc(db5,'tokens',window._user.uid)); window._tokens = s.exists()? s.data() : { coins:0, lastClaim:null }; }
-  catch(e){ console.warn('tokens load', e); }
+// ---- sonido de moneda (Web Audio, sin archivos) ----
+let _rwAudio=null;
+function _rwEnsureAudio(){ try{ if(!_rwAudio) _rwAudio=new (window.AudioContext||window.webkitAudioContext)(); if(_rwAudio.state==='suspended') _rwAudio.resume(); }catch(e){} return _rwAudio; }
+window.addEventListener('pointerdown', function _rwU(){ _rwEnsureAudio(); window.removeEventListener('pointerdown',_rwU); }, {once:true});
+function playCoinSound(){
+  const ctx=_rwEnsureAudio(); if(!ctx) return;
+  const t0=ctx.currentTime;
+  function blip(f,s,d){ const o=ctx.createOscillator(), g=ctx.createGain(); o.type='square'; o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001, t0+s); g.gain.exponentialRampToValueAtTime(0.16, t0+s+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0+s+d);
+    o.connect(g); g.connect(ctx.destination); o.start(t0+s); o.stop(t0+s+d+0.03); }
+  blip(987.77, 0, 0.09); blip(1318.51, 0.09, 0.18);   // tipo "moneda"
 }
-async function _rwSaveTokens(){
-  if(!window._user) return;
-  try{ await setDoc(doc(db5,'tokens',window._user.uid), { coins:window._tokens.coins||0, lastClaim:window._tokens.lastClaim||null }); }
-  catch(e){ console.warn('tokens save', e); }
-}
-async function _rwLoadReward(){
-  try{ const s=await getDoc(doc(db5,'recompensa','actual')); window._activeReward = s.exists()? s.data() : null; }
-  catch(e){ window._activeReward=null; }
-}
-async function _rwLoadCanjes(){
-  if(!rewIsAdmin()){ window._canjes=[]; return; }
-  try{ const q=query(collection(db5,'canjes'), orderBy('fecha','desc')); const snap=await getDocs(q); window._canjes=snap.docs.map(d=>d.data()); }
-  catch(e){ window._canjes=[]; }
-}
+window.playCoinSound = playCoinSound;
 
-// ---- moneda diaria (estricto: +1 si es consecutivo, si no, vuelve a 1) ----
+// ---- carga / guardado ----
+async function _rwLoadTokens(){ if(!window._user) return; try{ const s=await getDoc(doc(db5,'tokens',window._user.uid)); window._tokens=s.exists()?s.data():{coins:0,lastClaim:null}; }catch(e){ console.warn('tokens load',e); } }
+async function _rwSaveTokens(){ if(!window._user) return; try{ await setDoc(doc(db5,'tokens',window._user.uid),{coins:window._tokens.coins||0,lastClaim:window._tokens.lastClaim||null}); }catch(e){ console.warn('tokens save',e); } }
+async function _rwLoadRewards(){ try{ const snap=await getDocs(collection(db5,'recompensas')); window._rewards=snap.docs.map(d=>Object.assign({id:d.id}, d.data())); }catch(e){ window._rewards=[]; } }
+async function _rwLoadCanjes(){ if(!rewIsAdmin()){ window._canjes=[]; return; } try{ const q=query(collection(db5,'canjes'),orderBy('fecha','desc')); const snap=await getDocs(q); window._canjes=snap.docs.map(d=>d.data()); }catch(e){ window._canjes=[]; } }
+
+// ---- moneda diaria (estricto) ----
 window.claimDailyToken = async function(){
   if(!window._user) return;
   await _rwLoadTokens();
   const t=_rwToday();
-  if(window._tokens.lastClaim===t){ updateCoinBadge(); return; }   // ya reclamó hoy
-  let prev = window._tokens.coins||0;
-  if(window._tokens.lastClaim && _rwDiff(window._tokens.lastClaim, t)===1){
-    window._tokens.coins = prev + 1;                                // día consecutivo
-  } else {
-    window._tokens.coins = 1;                                       // racha rota -> reinicia
-  }
-  window._tokens.lastClaim = t;
+  if(window._tokens.lastClaim===t){ updateCoinBadge(); return; }
+  const prev=window._tokens.coins||0;
+  if(window._tokens.lastClaim && _rwDiff(window._tokens.lastClaim,t)===1) window._tokens.coins=prev+1; else window._tokens.coins=1;
+  window._tokens.lastClaim=t;
   await _rwSaveTokens();
   updateCoinBadge();
   showCoinToast(window._tokens.coins);
+  playCoinSound();
 };
-
-window.updateCoinBadge = function(){
-  const b=document.getElementById('coin-badge');
-  if(b) b.textContent = (window._tokens && window._tokens.coins) ? window._tokens.coins : 0;
-};
+window.updateCoinBadge=function(){ const b=document.getElementById('coin-badge'); if(b) b.textContent=(window._tokens&&window._tokens.coins)?window._tokens.coins:0; };
 
 function showCoinToast(n){
   let el=document.getElementById('coin-toast');
-  if(!el){
-    el=document.createElement('div'); el.id='coin-toast';
+  if(!el){ el=document.createElement('div'); el.id='coin-toast';
     el.style.cssText='position:fixed;top:80px;left:50%;transform:translateX(-50%) translateY(-20px);z-index:10000;background:linear-gradient(135deg,#0d1a10,#0a1208);border:1px solid rgba(0,229,122,.4);border-radius:14px;padding:12px 22px;color:#fff;font-family:var(--font,Inter,sans-serif);font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 24px rgba(0,229,122,.15);opacity:0;transition:opacity .35s, transform .35s;pointer-events:none';
-    document.body.appendChild(el);
-  }
-  el.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" style="vertical-align:middle;margin:0 1px"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg> +1 moneda · <span style="color:var(--accent,#00e57a)">¡Día '+n+'!</span> 🔥';
+    document.body.appendChild(el); }
+  el.innerHTML=_coin(20)+' +1 moneda · <span style="color:var(--accent,#00e57a)">¡Día '+n+'!</span> 🔥';
   requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.transform='translateX(-50%) translateY(0)'; });
   clearTimeout(window.__coinToastT);
   window.__coinToastT=setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(-20px)'; }, 3200);
 }
 
-// ---- refrescar + render del panel ----
-window.refreshRecompensas = async function(){
-  await _rwLoadTokens();
-  await _rwLoadReward();
-  await _rwLoadCanjes();
-  renderRecompensas();
-};
+// ---- refrescar + render ----
+window.refreshRecompensas=async function(){ await _rwLoadTokens(); await _rwLoadRewards(); await _rwLoadCanjes(); renderRecompensas(); };
 
-window.renderRecompensas = function(){
-  const pane=document.getElementById('pane-recompensas');
-  if(!pane) return;
+window.renderRecompensas=function(){
+  const pane=document.getElementById('pane-recompensas'); if(!pane) return;
   const coins=(window._tokens&&window._tokens.coins)||0;
-  const r=window._activeReward;
-  const rActive = r && r.activo;
-  const cost = rActive ? (r.costo||0) : 0;
-  const pct = (rActive && cost>0) ? Math.min(100, Math.round(coins/cost*100)) : 0;
+  const all=window._rewards||[];
+  const active=all.filter(r=>r.activo);
 
-  let html='<div class="g2">';
+  let html='';
 
   // HERO
   html += '<div class="card" style="text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center">'
-        + '<div style="line-height:1"><svg viewBox="0 0 24 24" width="64" height="64" style="vertical-align:middle;margin:0 1px"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg></div>'
-        + '<div style="font-size:46px;font-weight:800;color:var(--accent);line-height:1.1">'+coins+'</div>'
+        + '<div style="line-height:1">'+_coin(60)+'</div>'
+        + '<div style="font-size:46px;font-weight:800;color:var(--accent);line-height:1.1;margin-top:6px">'+coins+'</div>'
         + '<div style="color:var(--muted);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em">monedas</div>'
-        + '<div style="margin-top:10px;color:var(--yellow);font-size:14px;font-weight:600">🔥 '+coins+' días seguidos</div>';
-  if(rActive){
-    html += '<div style="width:100%;margin-top:16px">'
-          + '<div style="height:10px;border-radius:99px;background:var(--s2);overflow:hidden;border:1px solid var(--border)"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#00b894,#00e57a)"></div></div>'
-          + '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:6px">'+coins+' / '+cost+' para tu recompensa</div></div>';
+        + '<div style="margin-top:10px;color:var(--yellow);font-size:14px;font-weight:600">🔥 '+coins+' días seguidos</div>'
+        + '</div>';
+
+  // RECOMPENSAS DISPONIBLES
+  html += '<div class="card" style="margin-top:16px"><div class="ct">🎁 Recompensas disponibles</div>';
+  if(!active.length){
+    html += '<div style="text-align:center;color:var(--muted2);padding:10px 0"><div style="font-size:38px">⏳</div><div style="font-weight:700;color:var(--text);margin-top:6px">Aún no hay recompensas disponibles</div><div style="font-size:13px;margin-top:6px">¡Sigue entrando cada día y acumulando monedas!</div></div>';
+  } else {
+    html += '<div class="g2">';
+    active.forEach(r=>{
+      const cost=r.costo||0, can=coins>=cost, falta=Math.max(0,cost-coins);
+      html += '<div style="border:1px solid var(--border2);border-radius:14px;padding:16px;display:flex;flex-direction:column;background:rgba(0,229,122,.03)">'
+            + '<div style="font-size:17px;font-weight:700;color:var(--text)">'+_rwEsc(r.titulo||'')+'</div>'
+            + (r.descripcion?'<div style="color:var(--muted2);font-size:13px;margin-top:5px;line-height:1.55">'+_rwEsc(r.descripcion)+'</div>':'')
+            + '<div style="margin:12px 0;font-family:var(--mono);font-size:14px">Costo: <b style="color:var(--accent)">'+cost+' '+_coin(15)+'</b></div>'
+            + '<button onclick="redeemReward(\''+r.id+'\')" '+(can?'':'disabled')+' style="margin-top:auto;background:'+(can?'#25D366':'var(--s2)')+';color:'+(can?'#fff':'var(--muted)')+';border:none;padding:12px 16px;border-radius:11px;font-weight:700;cursor:'+(can?'pointer':'not-allowed')+';font-family:var(--font);font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px">'
+            + (can?'<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.523 5.26l-.999 3.648 3.965-1.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg> Canjear':'Te faltan '+falta+' monedas')
+            + '</button></div>';
+    });
+    html += '</div>';
   }
   html += '</div>';
-
-  // RECOMPENSA ACTIVA
-  if(rActive){
-    const falta = Math.max(0, cost-coins);
-    const can = coins>=cost;
-    html += '<div class="card" style="display:flex;flex-direction:column">'
-          + '<div class="ct">🎁 Recompensa disponible</div>'
-          + '<div style="font-size:19px;font-weight:700;color:var(--text)">'+_rwEsc(r.titulo||'')+'</div>'
-          + (r.descripcion?'<div style="color:var(--muted2);font-size:13px;margin-top:6px;line-height:1.6">'+_rwEsc(r.descripcion)+'</div>':'')
-          + '<div style="margin:14px 0;font-family:var(--mono);font-size:14px">Costo: <b style="color:var(--accent)">'+cost+' <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin:0 1px"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg></b></div>'
-          + '<button onclick="redeemReward()" '+(can?'':'disabled')+' style="background:'+(can?'var(--accent)':'var(--s2)')+';color:'+(can?'#04150c':'var(--muted)')+';border:none;padding:13px 20px;border-radius:11px;font-weight:700;cursor:'+(can?'pointer':'not-allowed')+';font-family:var(--font);font-size:14px">'+(can?'Canjear ahora':'Te faltan '+falta+' monedas')+'</button>'
-          + '</div>';
-  } else {
-    html += '<div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted2)">'
-          + '<div style="font-size:42px">⏳</div>'
-          + '<div style="font-weight:700;color:var(--text);margin-top:6px">Aún no hay recompensa disponible</div>'
-          + '<div style="font-size:13px;margin-top:6px;line-height:1.6">¡Sigue entrando cada día y acumulando monedas! Pronto habrá un premio para canjear.</div>'
-          + '</div>';
-  }
-  html += '</div>'; // /g2
 
   // ADMIN
   if(rewIsAdmin()){
     html += '<div class="card" style="margin-top:16px;border-color:rgba(0,229,122,.3)">'
-          + '<div class="ct">⚙️ Admin — Recompensa del mes</div>'
-          + '<div class="fg"><label class="fl">Título</label><input class="fi" id="rew-titulo" placeholder="Ej: Comunidad privada + Mentoría ($50)" value="'+_rwEsc(r&&r.titulo||'')+'"></div>'
-          + '<div class="fg"><label class="fl">Descripción</label><input class="fi" id="rew-desc" placeholder="Ej: Acceso a la comunidad privada o 1 mes de mentoría" value="'+_rwEsc(r&&r.descripcion||'')+'"></div>'
-          + '<div class="fr"><div class="fg"><label class="fl">Costo (monedas)</label><input class="fi" id="rew-costo" type="number" min="1" placeholder="15" value="'+(r&&r.costo||'')+'"></div>'
-          + '<div class="fg"><label class="fl">Estado</label><label style="display:flex;gap:8px;align-items:center;height:42px;color:var(--text);font-size:14px;cursor:pointer"><input type="checkbox" id="rew-activo" '+((r&&r.activo)?'checked':'')+' style="width:18px;height:18px;accent-color:var(--accent)"> Activa (visible para todos)</label></div></div>'
-          + '<div style="display:flex;gap:10px;margin-top:8px">'
-          + '<button onclick="saveActiveReward()" style="background:var(--accent);color:#04150c;border:none;padding:12px 20px;border-radius:11px;font-weight:700;cursor:pointer;font-family:var(--font)">Guardar recompensa</button>'
-          + '<button onclick="clearActiveReward()" style="background:var(--s2);color:var(--text);border:1px solid var(--border2);padding:12px 20px;border-radius:11px;cursor:pointer;font-family:var(--font)">Quitar</button>'
-          + '</div></div>';
+          + '<div class="ct">⚙️ Admin — Crear recompensa</div>'
+          + '<div class="fg"><label class="fl">Título</label><input class="fi" id="rew-new-titulo" placeholder="Ej: Comunidad privada"></div>'
+          + '<div class="fg"><label class="fl">Descripción</label><input class="fi" id="rew-new-desc" placeholder="Ej: Acceso de por vida a la comunidad privada de NQ Project"></div>'
+          + '<div class="fr"><div class="fg"><label class="fl">Costo (monedas)</label><input class="fi" id="rew-new-costo" type="number" min="1" placeholder="15"></div>'
+          + '<div class="fg"><label class="fl">Estado</label><label style="display:flex;gap:8px;align-items:center;height:42px;color:var(--text);font-size:14px;cursor:pointer"><input type="checkbox" id="rew-new-activo" checked style="width:18px;height:18px;accent-color:var(--accent)"> Activa</label></div></div>'
+          + '<div class="fg"><label class="fl">Mensaje de WhatsApp <small style="text-transform:none;letter-spacing:0;color:var(--muted)">(opcional — si lo dejas vacío se genera automático)</small></label><input class="fi" id="rew-new-msg" placeholder="Ej: Hola, quiero canjear mis monedas por la comunidad privada"></div>'
+          + '<button onclick="addReward()" style="background:var(--accent);color:#04150c;border:none;padding:12px 20px;border-radius:11px;font-weight:700;cursor:pointer;font-family:var(--font)">Crear recompensa</button>'
+          + '</div>';
 
-    // lista de canjes
+    // lista de recompensas (todas)
+    html += '<div class="card" style="margin-top:16px"><div class="ct">📦 Recompensas creadas ('+all.length+')</div>';
+    if(!all.length){ html += '<div style="color:var(--muted);font-size:13px">Aún no has creado recompensas.</div>'; }
+    else {
+      all.forEach(r=>{
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid var(--border);padding:10px 0">'
+              + '<div><b style="color:var(--text)">'+_rwEsc(r.titulo||'')+'</b> <span style="color:var(--muted);font-size:12px;font-family:var(--mono)">· '+(r.costo||0)+' monedas · '+(r.activo?'<span style="color:var(--accent)">activa</span>':'<span style="color:var(--muted)">inactiva</span>')+'</span></div>'
+              + '<div style="display:flex;gap:6px">'
+              + '<button onclick="toggleReward(\''+r.id+'\')" style="background:var(--s2);color:var(--text);border:1px solid var(--border2);padding:7px 12px;border-radius:9px;cursor:pointer;font-size:12px">'+(r.activo?'Desactivar':'Activar')+'</button>'
+              + '<button onclick="deleteReward(\''+r.id+'\')" style="background:rgba(255,80,80,.12);color:#ff6b6b;border:1px solid rgba(255,80,80,.3);padding:7px 12px;border-radius:9px;cursor:pointer;font-size:12px">Eliminar</button>'
+              + '</div></div>';
+      });
+    }
+    html += '</div>';
+
+    // canjes
     html += '<div class="card" style="margin-top:16px"><div class="ct">📋 Canjes realizados ('+window._canjes.length+')</div>';
     if(!window._canjes.length){ html += '<div style="color:var(--muted);font-size:13px">Aún no hay canjes.</div>'; }
-    else {
-      html += '<div style="display:flex;flex-direction:column;gap:8px;font-size:13px">';
-      window._canjes.forEach(c=>{
-        const f = c.fecha? new Date(c.fecha).toLocaleDateString('es-CO') : '';
-        html += '<div style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border);padding-bottom:8px">'
-              + '<div><b style="color:var(--text)">'+_rwEsc(c.nombre||'—')+'</b><div style="color:var(--muted);font-size:12px;font-family:var(--mono)">'+_rwEsc(c.email||'')+'</div></div>'
-              + '<div style="text-align:right"><div style="color:var(--accent)">'+_rwEsc(c.recompensa||'')+'</div><div style="color:var(--muted);font-size:12px;font-family:var(--mono)">'+_rwEsc(c.costo||'')+' <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin:0 1px"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg> · '+f+'</div></div></div>';
-      });
-      html += '</div>';
-    }
+    else { window._canjes.forEach(c=>{ const f=c.fecha?new Date(c.fecha).toLocaleDateString('es-CO'):'';
+      html += '<div style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border);padding:8px 0;font-size:13px"><div><b style="color:var(--text)">'+_rwEsc(c.nombre||'—')+'</b><div style="color:var(--muted);font-size:12px;font-family:var(--mono)">'+_rwEsc(c.email||'')+'</div></div><div style="text-align:right"><div style="color:var(--accent)">'+_rwEsc(c.recompensa||'')+'</div><div style="color:var(--muted);font-size:12px;font-family:var(--mono)">'+_rwEsc(c.costo||'')+' monedas · '+f+'</div></div></div>'; }); }
     html += '</div>';
   }
 
   // cómo funciona
   html += '<div class="card" style="margin-top:16px"><div class="ct">ℹ️ Cómo funciona</div>'
-        + '<div style="font-size:13px;color:var(--muted2);line-height:1.7">Cada día que entras ganas <b>1 moneda</b> <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin:0 1px"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg>. Las monedas representan tu <b>racha</b>: si entras días seguidos suben, pero si te saltas un día vuelves a empezar. Cuando NQ Project habilita una recompensa, si tienes suficientes monedas puedes <b>canjearla</b> y se descuentan de tu total. Si no hay recompensa activa, sigue sumando para el próximo premio.</div></div>';
+        + '<div style="font-size:13px;color:var(--muted2);line-height:1.7">Cada día que entras ganas <b>1 moneda</b>. Las monedas representan tu <b>racha</b>: si entras días seguidos suben, pero si te saltas un día vuelves a empezar. Cuando tengas monedas suficientes para una recompensa activa, podrás <b>canjearla</b> y te llevará a WhatsApp para coordinar la entrega. Si no hay recompensas activas, sigue sumando para los próximos premios.</div></div>';
 
   pane.innerHTML=html;
 };
 
-function _rwEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-// ---- canjear ----
-window.redeemReward = async function(){
+// ---- canjear (descuenta monedas, registra el canje y abre WhatsApp) ----
+window.redeemReward = async function(id){
   if(!window._user) return;
-  await _rwLoadReward(); await _rwLoadTokens();
-  const r=window._activeReward;
-  if(!r || !r.activo){ alert('Ahora mismo no hay ninguna recompensa disponible para canjear.'); renderRecompensas(); return; }
+  await _rwLoadRewards(); await _rwLoadTokens();
+  const r=(window._rewards||[]).find(x=>x.id===id);
+  if(!r || !r.activo){ alert('Esa recompensa ya no está disponible.'); renderRecompensas(); return; }
   const coins=window._tokens.coins||0;
   if(coins < (r.costo||0)){ alert('Aún no tienes suficientes monedas para esta recompensa.'); renderRecompensas(); return; }
-  if(!confirm('¿Canjear "'+r.titulo+'" por '+r.costo+' monedas?')) return;
+  if(!confirm('¿Canjear "'+r.titulo+'" por '+r.costo+' monedas? Te llevaremos a WhatsApp para coordinar la entrega.')) return;
   window._tokens.coins = coins - (r.costo||0);
   await _rwSaveTokens();
-  try{
-    await addDoc(collection(db5,'canjes'), { uid:window._user.uid, nombre:window._user.displayName||'', email:window._user.email||'', recompensa:r.titulo||'', costo:r.costo||0, fecha:new Date().toISOString() });
-  }catch(e){ console.warn('canje save', e); }
+  try{ await addDoc(collection(db5,'canjes'), { uid:window._user.uid, nombre:window._user.displayName||'', email:window._user.email||'', recompensa:r.titulo||'', costo:r.costo||0, fecha:new Date().toISOString() }); }catch(e){ console.warn('canje', e); }
   updateCoinBadge();
+  const msg = (r.mensaje && r.mensaje.trim()) ? r.mensaje.trim() : ('Hola NQ Project, quiero canjear mis '+r.costo+' monedas por la recompensa: '+r.titulo);
+  window.open('https://wa.me/'+WHATSAPP_NUMBER+'?text='+encodeURIComponent(msg), '_blank');
   await refreshRecompensas();
-  alert('¡Canje exitoso! 🎉 Nos pondremos en contacto contigo para entregarte tu recompensa.');
 };
 
-// ---- admin: guardar / quitar recompensa ----
-window.saveActiveReward = async function(){
+// ---- admin: crear / activar / eliminar ----
+window.addReward = async function(){
   if(!rewIsAdmin()) return;
-  const titulo=(document.getElementById('rew-titulo').value||'').trim();
-  const descripcion=(document.getElementById('rew-desc').value||'').trim();
-  const costo=parseInt(document.getElementById('rew-costo').value,10);
-  const activo=document.getElementById('rew-activo').checked;
+  const titulo=_rwVal('rew-new-titulo'), descripcion=_rwVal('rew-new-desc'), mensaje=_rwVal('rew-new-msg');
+  const costo=parseInt(_rwVal('rew-new-costo'),10);
+  const activo=document.getElementById('rew-new-activo').checked;
   if(!titulo){ alert('Ponle un título a la recompensa.'); return; }
   if(!costo || costo<=0){ alert('Indica un costo válido en monedas.'); return; }
-  try{
-    await setDoc(doc(db5,'recompensa','actual'), { titulo, descripcion, costo, activo, fecha:new Date().toISOString() });
-    await refreshRecompensas();
-    alert('Recompensa guardada'+(activo?' y activada ✓':' (guardada como inactiva).'));
-  }catch(e){ alert('Error al guardar: '+e.message); }
+  try{ await addDoc(collection(db5,'recompensas'), { titulo, descripcion, costo, mensaje, activo, creadoEn:new Date().toISOString() });
+    await refreshRecompensas(); alert('Recompensa creada'+(activo?' y activada ✓':' (inactiva).'));
+  }catch(e){ alert('Error al crear: '+e.message); }
 };
-window.clearActiveReward = async function(){
+window.toggleReward = async function(id){
   if(!rewIsAdmin()) return;
-  if(!confirm('¿Quitar la recompensa activa? Nadie podrá canjear hasta que pongas una nueva.')) return;
-  try{ await setDoc(doc(db5,'recompensa','actual'), { activo:false }); await refreshRecompensas(); }
+  const r=(window._rewards||[]).find(x=>x.id===id); if(!r) return;
+  try{ await setDoc(doc(db5,'recompensas',id), { activo:!r.activo }, { merge:true }); await refreshRecompensas(); }
+  catch(e){ alert('Error: '+e.message); }
+};
+window.deleteReward = async function(id){
+  if(!rewIsAdmin()) return;
+  if(!confirm('¿Eliminar esta recompensa? No se podrá deshacer.')) return;
+  try{ await deleteDoc(doc(db5,'recompensas',id)); await refreshRecompensas(); }
   catch(e){ alert('Error: '+e.message); }
 };
 
 // ---- al iniciar sesión: reclamar moneda del día ----
-(function(){
-  let tries=0;
-  const iv=setInterval(function(){
-    if(window._user){ clearInterval(iv); if(window.claimDailyToken) window.claimDailyToken(); }
-    if(++tries>50) clearInterval(iv);
-  },400);
-})();
+(function(){ let tries=0; const iv=setInterval(function(){ if(window._user){ clearInterval(iv); if(window.claimDailyToken) window.claimDailyToken(); } if(++tries>50) clearInterval(iv); },400); })();
 </script>
 
 </body>
