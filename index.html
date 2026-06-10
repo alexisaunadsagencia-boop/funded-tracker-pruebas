@@ -712,6 +712,7 @@ body.light .note-card.color-orange:hover{border-color:rgba(210,110,0,.6)!importa
   </div>
   <div class="hdr-right">
   <div id="streak-badge" title="Días seguidos en la plataforma" style="display:none;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(255,140,0,.16),rgba(255,90,0,.06));border:1px solid rgba(255,140,0,.4);padding:6px 13px;border-radius:99px;font-weight:800;font-size:14px;color:#ff9b3d;margin-right:2px">🔥 <span id="streak-count">0</span></div>
+  <div id="nov-bell" onclick="openNovedades()" title="Novedades" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:var(--s1);border:1px solid var(--border2);margin-right:2px"><svg viewBox="0 0 24 24" width="18" height="18" fill="var(--text)" style="opacity:.85"><path d="M12 2a6 6 0 00-6 6v3.586L4.293 13.293A1 1 0 005 15h14a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6zm0 20a3 3 0 002.995-2.824L15 19H9a3 3 0 003 3z"/></svg><span id="nov-badge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:99px;background:#ff4060;color:#fff;font-size:10px;font-weight:800;align-items:center;justify-content:center;border:2px solid var(--bg)">0</span></div>
   <div class="theme-btn" id="theme-btn" onclick="toggleTheme()">&#127769;</div>
     <button class="btn btn-g" onclick="openTradeModal()">+ TRADE</button>
     <button class="btn btn-p" onclick="newAccountModal()">+ CUENTA</button>
@@ -734,9 +735,7 @@ body.light .note-card.color-orange:hover{border-color:rgba(210,110,0,.6)!importa
   <div class="tab" onclick="goTab('recompensas')"><svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin:0 1px"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg> Recompensas <span id="coin-badge" style="display:inline-block;min-width:18px;padding:1px 6px;margin-left:4px;border-radius:99px;background:var(--accent);color:#04150c;font-size:11px;font-weight:800;text-align:center">0</span></div>
   <div class="tab" onclick="goTab('notas')">📝 Notas</div>
   <div class="tab" onclick="goTab('eventos')" id="tab-eventos" style="position:relative;">
-    📅 Eventos
-    <span id="ev-dot" style="display:none;position:absolute;top:6px;right:2px;width:8px;height:8px;border-radius:50%;background:#ffc840;animation:ev-dot-blink 1.2s ease-in-out infinite;"></span>
-    <span id="ev-dot-live" style="display:none;position:absolute;top:6px;right:2px;width:8px;height:8px;border-radius:50%;background:#ff4060;animation:ev-dot-blink .8s ease-in-out infinite;"></span>
+    <span id="ev-bell" style="display:none;vertical-align:middle;margin-right:3px"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="vertical-align:middle"><path d="M12 2a6 6 0 00-6 6v3.586L4.293 13.293A1 1 0 005 15h14a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6zm0 20a3 3 0 002.995-2.824L15 19H9a3 3 0 003 3z"/></svg></span>📅 Eventos<span id="ev-count" style="display:none;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:5px;border-radius:99px;background:#ffc840;color:#1a1200;font-size:10px;font-weight:800;vertical-align:middle">0</span>
   </div>
 </div>
 
@@ -3177,13 +3176,23 @@ function isAdmin() {
 
 // ── ACTUALIZAR DOT EN TAB ──
 function updateEvDot(eventos) {
-  const dot     = document.getElementById('ev-dot');
-  const dotLive = document.getElementById('ev-dot-live');
-  if (!dot || !dotLive) return;
-  const hasLive    = eventos.some(e => e.estado === 'live');
-  const hasProximo = eventos.some(e => e.estado === 'proximo');
-  dotLive.style.display = hasLive ? 'block' : 'none';
-  dot.style.display     = !hasLive && hasProximo ? 'block' : 'none';
+  const tab=document.getElementById('tab-eventos');
+  const bell=document.getElementById('ev-bell');
+  const count=document.getElementById('ev-count');
+  if(!tab) return;
+  const live=eventos.filter(e=>e.estado==='live').length;
+  const prox=eventos.filter(e=>e.estado==='proximo').length;
+  const total=live+prox;
+  if(total>0){
+    tab.classList.add('tab-evt-on');
+    tab.style.setProperty('--evt-glow', live>0?'rgba(255,64,96,.55)':'rgba(255,200,64,.5)');
+    if(bell){ bell.style.display='inline-block'; bell.style.color = live>0?'#ff4060':'#ffc840'; }
+    if(count){ count.style.display='inline-flex'; count.textContent=String(total); count.style.background= live>0?'#ff4060':'#ffc840'; count.style.color= live>0?'#fff':'#1a1200'; }
+  } else {
+    tab.classList.remove('tab-evt-on');
+    if(bell) bell.style.display='none';
+    if(count) count.style.display='none';
+  }
 }
 
 async function checkEvDotOnLoad() {
@@ -4951,5 +4960,110 @@ window.deleteReward = async function(id){
 (function(){ let tries=0; const iv=setInterval(function(){ if(window._user){ clearInterval(iv); if(window.claimDailyToken) window.claimDailyToken(); } if(++tries>50) clearInterval(iv); },400); })();
 </script>
 
+<style>
+/* Resaltado de la pestaña Eventos cuando hay eventos disponibles */
+.tab-evt-on{ animation:evtGlow 1.7s ease-in-out infinite; border-radius:8px; }
+@keyframes evtGlow{ 0%,100%{ box-shadow:0 0 0 rgba(0,0,0,0);} 50%{ box-shadow:0 0 16px var(--evt-glow,rgba(255,200,64,.5)); } }
+#nov-bell:hover{ filter:brightness(1.18); }
+</style>
+
+<!-- MODAL NOVEDADES -->
+<div class="ov" id="ov-novedades">
+  <div class="modal" style="max-width:540px">
+    <div class="mhdr" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span class="mtitle">🔔 Novedades</span>
+      <button class="mx" onclick="closeOv('novedades')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">&#215;</button>
+    </div>
+    <div id="nov-admin"></div>
+    <div id="nov-list"></div>
+  </div>
+</div>
+
+<!-- ===== NQ — Novedades (avisos dentro de la plataforma) ===== -->
+<script type="module">
+import { getFirestore, doc, deleteDoc, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+const db6 = getFirestore(getApp());
+const NOV_ADMIN_UID = 'Y1yAXDmeCKQ5IB3AupXR7KWLFlK2';
+function novIsAdmin(){ return window._user && window._user.uid === NOV_ADMIN_UID; }
+function _novEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+window._novedades = [];
+function _novSeen(){ try{ return localStorage.getItem('nq_nov_seen')||''; }catch(e){ return ''; } }
+function _novSetSeen(ts){ try{ localStorage.setItem('nq_nov_seen', ts); }catch(e){} }
+
+async function loadNovedades(){ try{ const q=query(collection(db6,'novedades'),orderBy('fecha','desc')); const snap=await getDocs(q); window._novedades=snap.docs.map(d=>Object.assign({id:d.id}, d.data())); }catch(e){ window._novedades=[]; } }
+
+window.updateNovBadge=function(){
+  const badge=document.getElementById('nov-badge'); if(!badge) return;
+  const seen=_novSeen();
+  const unread=(window._novedades||[]).filter(n=>!seen || (n.fecha||'')>seen).length;
+  if(unread>0){ badge.style.display='flex'; badge.textContent= unread>9?'9+':String(unread); }
+  else { badge.style.display='none'; }
+};
+
+window.openNovedades=async function(){
+  openOv('novedades');
+  await loadNovedades();
+  renderNovedades();
+  const latest=(window._novedades||[]).reduce((m,n)=>((n.fecha||'')>m?(n.fecha||''):m),'');
+  if(latest) _novSetSeen(latest);
+  updateNovBadge();
+};
+
+window.renderNovedades=function(){
+  const adminEl=document.getElementById('nov-admin');
+  if(adminEl){
+    if(novIsAdmin()){
+      adminEl.innerHTML='<div style="border:1px solid rgba(0,229,122,.3);border-radius:12px;padding:14px;margin-bottom:18px">'
+        +'<div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:10px;font-family:var(--mono);letter-spacing:.06em">⚙️ PUBLICAR NOVEDAD</div>'
+        +'<input class="fi" id="nov-titulo" placeholder="Título (ej: ¡Nueva calculadora de contratos!)" style="margin-bottom:8px">'
+        +'<textarea class="fi" id="nov-desc" placeholder="Cuenta qué agregaron o mejoraron en la plataforma..." style="min-height:72px;resize:vertical;font-family:var(--font);margin-bottom:10px"></textarea>'
+        +'<button onclick="postNovedad()" style="background:var(--accent);color:#04150c;border:none;padding:10px 18px;border-radius:10px;font-weight:700;cursor:pointer;font-family:var(--font)">Publicar novedad</button>'
+        +'</div>';
+    } else { adminEl.innerHTML=''; }
+  }
+  const listEl=document.getElementById('nov-list'); if(!listEl) return;
+  const list=window._novedades||[];
+  if(!list.length){ listEl.innerHTML='<div style="text-align:center;color:var(--muted);padding:24px 0;font-size:14px">Aún no hay novedades por aquí. 🌱</div>'; return; }
+  let html='';
+  list.forEach(n=>{
+    const f=n.fecha?new Date(n.fecha).toLocaleDateString('es-CO',{day:'numeric',month:'short',year:'numeric'}):'';
+    html+='<div style="border-left:3px solid var(--accent);background:var(--s1);border-radius:10px;padding:14px 16px;margin-bottom:12px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'
+      +'<div style="font-weight:700;color:var(--text);font-size:15px">'+_novEsc(n.titulo||'')+'</div>'
+      +(novIsAdmin()?'<button onclick="deleteNovedad(\''+n.id+'\')" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:12px;flex-shrink:0">Eliminar</button>':'')
+      +'</div>'
+      +(n.descripcion?'<div style="color:var(--muted2);font-size:13.5px;line-height:1.65;margin-top:6px;white-space:pre-wrap">'+_novEsc(n.descripcion)+'</div>':'')
+      +'<div style="color:var(--muted);font-size:11px;font-family:var(--mono);margin-top:9px">'+f+'</div>'
+      +'</div>';
+  });
+  listEl.innerHTML=html;
+};
+
+window.postNovedad=async function(){
+  if(!novIsAdmin()) return;
+  const titulo=(document.getElementById('nov-titulo').value||'').trim();
+  const descripcion=(document.getElementById('nov-desc').value||'').trim();
+  if(!titulo){ alert('Ponle un título a la novedad.'); return; }
+  try{
+    await addDoc(collection(db6,'novedades'), { titulo, descripcion, fecha:new Date().toISOString() });
+    await loadNovedades(); renderNovedades();
+    const latest=(window._novedades||[]).reduce((m,n)=>((n.fecha||'')>m?(n.fecha||''):m),''); if(latest) _novSetSeen(latest);
+    updateNovBadge();
+    const ti=document.getElementById('nov-titulo'), de=document.getElementById('nov-desc'); if(ti)ti.value=''; if(de)de.value='';
+    alert('Novedad publicada ✓ Ya la verán todos los usuarios.');
+  }catch(e){ alert('Error al publicar: '+e.message); }
+};
+window.deleteNovedad=async function(id){
+  if(!novIsAdmin()) return;
+  if(!confirm('¿Eliminar esta novedad?')) return;
+  try{ await deleteDoc(doc(db6,'novedades',id)); await loadNovedades(); renderNovedades(); updateNovBadge(); }
+  catch(e){ alert('Error: '+e.message); }
+};
+
+// al iniciar sesión: cargar novedades y actualizar la campanita
+(function(){ let n=0; const iv=setInterval(function(){ if(window._user){ clearInterval(iv); loadNovedades().then(()=>updateNovBadge()); } if(++n>50) clearInterval(iv); },400); })();
+</script>
 </body>
 </html>
