@@ -4765,7 +4765,7 @@ import { getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.
 const db5 = getFirestore(getApp());
 
 const REW_ADMIN_UID = 'Y1yAXDmeCKQ5IB3AupXR7KWLFlK2';
-const WHATSAPP_NUMBER = '573207599156';   // <-- número de WhatsApp para los canjes (CONFIRMAR)
+const WHATSAPP_NUMBER = '573207599156';   // <-- tu WhatsApp: respaldo si una recompensa no tiene link propio
 function rewIsAdmin(){ return window._user && window._user.uid === REW_ADMIN_UID; }
 
 function _rwToday(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -4876,7 +4876,7 @@ window.renderRecompensas=function(){
           + '<div class="fg"><label class="fl">Descripción</label><input class="fi" id="rew-new-desc" placeholder="Ej: Acceso de por vida a la comunidad privada de NQ Project"></div>'
           + '<div class="fr"><div class="fg"><label class="fl">Costo (monedas)</label><input class="fi" id="rew-new-costo" type="number" min="1" placeholder="15"></div>'
           + '<div class="fg"><label class="fl">Estado</label><label style="display:flex;gap:8px;align-items:center;height:42px;color:var(--text);font-size:14px;cursor:pointer"><input type="checkbox" id="rew-new-activo" checked style="width:18px;height:18px;accent-color:var(--accent)"> Activa</label></div></div>'
-          + '<div class="fg"><label class="fl">Mensaje de WhatsApp <small style="text-transform:none;letter-spacing:0;color:var(--muted)">(opcional — si lo dejas vacío se genera automático)</small></label><input class="fi" id="rew-new-msg" placeholder="Ej: Hola, quiero canjear mis monedas por la comunidad privada"></div>'
+          + '<div class="fg"><label class="fl">Link de WhatsApp <small style="text-transform:none;letter-spacing:0;color:var(--muted)">(opcional — pega tu propio link con el mensaje que quieras; si lo dejas vacío se usa tu número con un mensaje automático)</small></label><input class="fi" id="rew-new-link" placeholder="Ej: https://wa.link/abc123"></div>'
           + '<button onclick="addReward()" style="background:var(--accent);color:#04150c;border:none;padding:12px 20px;border-radius:11px;font-weight:700;cursor:pointer;font-family:var(--font)">Crear recompensa</button>'
           + '</div>';
 
@@ -4923,20 +4923,25 @@ window.redeemReward = async function(id){
   await _rwSaveTokens();
   try{ await addDoc(collection(db5,'canjes'), { uid:window._user.uid, nombre:window._user.displayName||'', email:window._user.email||'', recompensa:r.titulo||'', costo:r.costo||0, fecha:new Date().toISOString() }); }catch(e){ console.warn('canje', e); }
   updateCoinBadge();
-  const msg = (r.mensaje && r.mensaje.trim()) ? r.mensaje.trim() : ('Hola NQ Project, quiero canjear mis '+r.costo+' monedas por la recompensa: '+r.titulo);
-  window.open('https://wa.me/'+WHATSAPP_NUMBER+'?text='+encodeURIComponent(msg), '_blank');
+  if(r.link && r.link.trim()){
+    let lnk=r.link.trim(); if(!/^https?:\/\//i.test(lnk)) lnk='https://'+lnk;
+    window.open(lnk, '_blank');
+  } else {
+    const msg = (r.mensaje && r.mensaje.trim()) ? r.mensaje.trim() : ('Hola NQ Project, quiero canjear mis '+r.costo+' monedas por la recompensa: '+r.titulo);
+    window.open('https://wa.me/'+WHATSAPP_NUMBER+'?text='+encodeURIComponent(msg), '_blank');
+  }
   await refreshRecompensas();
 };
 
 // ---- admin: crear / activar / eliminar ----
 window.addReward = async function(){
   if(!rewIsAdmin()) return;
-  const titulo=_rwVal('rew-new-titulo'), descripcion=_rwVal('rew-new-desc'), mensaje=_rwVal('rew-new-msg');
+  const titulo=_rwVal('rew-new-titulo'), descripcion=_rwVal('rew-new-desc'), link=_rwVal('rew-new-link');
   const costo=parseInt(_rwVal('rew-new-costo'),10);
   const activo=document.getElementById('rew-new-activo').checked;
   if(!titulo){ alert('Ponle un título a la recompensa.'); return; }
   if(!costo || costo<=0){ alert('Indica un costo válido en monedas.'); return; }
-  try{ await addDoc(collection(db5,'recompensas'), { titulo, descripcion, costo, mensaje, activo, creadoEn:new Date().toISOString() });
+  try{ await addDoc(collection(db5,'recompensas'), { titulo, descripcion, costo, link, activo, creadoEn:new Date().toISOString() });
     await refreshRecompensas(); alert('Recompensa creada'+(activo?' y activada ✓':' (inactiva).'));
   }catch(e){ alert('Error al crear: '+e.message); }
 };
