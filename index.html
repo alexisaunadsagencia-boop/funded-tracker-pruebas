@@ -1018,7 +1018,7 @@ body.light .note-card.color-orange:hover{border-color:rgba(210,110,0,.6)!importa
       </button>
     </div>
     <!-- Lista de eventos -->
-    <div id="ev-list" style="display:flex;flex-direction:column;gap:16px;max-width:780px;width:100%;">
+    <div id="ev-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px;width:100%;max-width:1160px;align-items:start;">
       <div style="text-align:center;padding:60px 20px;color:var(--muted);">
         <div style="font-size:48px;margin-bottom:16px;opacity:.4;">📅</div>
         <div style="font-size:14px;font-weight:600;color:var(--muted2);">Cargando eventos...</div>
@@ -3244,6 +3244,13 @@ window.renderEventos = async function() {
     const snap = await getDocs(q);
     const eventos = [];
     snap.forEach(d => eventos.push({ id: d.id, ...d.data() }));
+    const _rank = { live:0, proximo:1, finalizado:2 };
+    eventos.sort((a,b) => {
+      const ra = _rank[a.estado] !== undefined ? _rank[a.estado] : 1;
+      const rb = _rank[b.estado] !== undefined ? _rank[b.estado] : 1;
+      if (ra !== rb) return ra - rb;
+      return (a.creadoEn||'') < (b.creadoEn||'') ? 1 : -1;
+    });
     updateEvDot(eventos);
     if (!eventos.length) {
       list.innerHTML = `
