@@ -1019,7 +1019,7 @@ body.light .note-card.color-orange:hover{border-color:rgba(210,110,0,.6)!importa
       </button>
     </div>
     <!-- Lista de eventos -->
-    <div id="ev-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:18px;width:100%;max-width:1160px;align-items:start;">
+    <div id="ev-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:18px;width:100%;align-items:start;">
       <div style="text-align:center;padding:60px 20px;color:var(--muted);">
         <div style="font-size:48px;margin-bottom:16px;opacity:.4;">📅</div>
         <div style="font-size:14px;font-weight:600;color:var(--muted2);">Cargando eventos...</div>
@@ -4891,7 +4891,7 @@ window.renderRecompensas=function(){
   if(!active.length){
     html += '<div class="card" style="text-align:center;color:var(--muted2);padding:28px 16px"><div style="font-size:42px">⏳</div><div style="font-weight:700;color:var(--text);margin-top:8px;font-size:16px">Aún no hay recompensas disponibles</div><div style="font-size:13px;margin-top:6px">¡Sigue entrando cada día y acumulando monedas!</div></div>';
   } else {
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:18px;max-width:1160px;align-items:start">';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:18px;align-items:start">';
     active.forEach(r=>{
       const cost=r.costo||0, can=coins>=cost, falta=Math.max(0,cost-coins);
       html += '<div onmouseover="this.style.transform=\'translateY(-4px)\';this.style.boxShadow=\'0 18px 44px rgba(0,229,122,.13)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 8px 30px rgba(0,0,0,.35)\'" style="position:relative;border:1px solid var(--border2);border-radius:18px;overflow:hidden;background:linear-gradient(160deg,rgba(0,229,122,.08),rgba(0,0,0,0));box-shadow:0 8px 30px rgba(0,0,0,.35);transition:transform .2s,box-shadow .2s;display:flex;flex-direction:column">'
