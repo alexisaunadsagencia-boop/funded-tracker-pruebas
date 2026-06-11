@@ -711,8 +711,8 @@ body.light .note-card.color-orange:hover{border-color:rgba(210,110,0,.6)!importa
     <div class="logo-sub" onclick="window.open('https://www.instagram.com/nqproject.oficial/','_blank')" title="Instagram NQ Project">NQ PROJECT</div>
   </div>
   <div class="hdr-right">
-  <div id="streak-badge" title="Días seguidos en la plataforma" style="display:none;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(255,140,0,.16),rgba(255,90,0,.06));border:1px solid rgba(255,140,0,.4);padding:6px 13px;border-radius:99px;font-weight:800;font-size:14px;color:#ff9b3d;margin-right:2px">🔥 <span id="streak-count">0</span></div>
-  <div id="coin-badge-top" title="Tus monedas disponibles" style="display:none;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(245,181,10,.16),rgba(200,137,10,.06));border:1px solid rgba(245,181,10,.45);padding:6px 12px;border-radius:99px;font-weight:800;font-size:14px;color:#f5b50a;margin-right:2px"><svg viewBox="0 0 24 24" width="15" height="15" style="vertical-align:middle"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg> <span id="coin-count-top">0</span></div>
+  <div id="streak-badge" onclick="toggleStreakInfo(event)" title="Racha — clic para saber más" style="display:none;cursor:pointer;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(255,140,0,.16),rgba(255,90,0,.06));border:1px solid rgba(255,140,0,.4);padding:6px 13px;border-radius:99px;font-weight:800;font-size:14px;color:#ff9b3d;margin-right:2px">🔥 <span id="streak-count">0</span></div>
+  <div id="coin-badge-top" onclick="toggleCoinInfo(event)" title="Monedas — clic para saber más" style="display:none;cursor:pointer;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(245,181,10,.16),rgba(200,137,10,.06));border:1px solid rgba(245,181,10,.45);padding:6px 12px;border-radius:99px;font-weight:800;font-size:14px;color:#f5b50a;margin-right:2px"><svg viewBox="0 0 24 24" width="15" height="15" style="vertical-align:middle"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg> <span id="coin-count-top">0</span></div>
   <div id="nov-bell" onclick="openNovedades()" title="Novedades" style="position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:var(--s1);border:1px solid var(--border2);margin-right:2px"><svg viewBox="0 0 24 24" width="18" height="18" fill="var(--text)" style="opacity:.85"><path d="M12 2a6 6 0 00-6 6v3.586L4.293 13.293A1 1 0 005 15h14a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6zm0 20a3 3 0 002.995-2.824L15 19H9a3 3 0 003 3z"/></svg><span id="nov-badge" style="display:none;position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:99px;background:#ff4060;color:#fff;font-size:10px;font-weight:800;align-items:center;justify-content:center;border:2px solid var(--bg)">0</span></div>
   <div class="theme-btn" id="theme-btn" onclick="toggleTheme()">&#127769;</div>
     <button class="btn btn-g" onclick="openTradeModal()">+ TRADE</button>
@@ -4875,10 +4875,15 @@ window.renderRecompensas=function(){
   let html='';
 
   // HERO
-  html += '<div class="card" style="text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center">'
-        + '<div style="line-height:1">'+_coin(60)+'</div>'
-        + '<div style="font-size:46px;font-weight:800;color:var(--accent);line-height:1.1;margin-top:6px">'+coins+'</div>'
-        + '<div style="color:var(--muted);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em">monedas</div>'
+  html += '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:18px 22px">'
+        + '<div style="display:flex;align-items:center;gap:14px">'
+        +   '<div style="line-height:1">'+_coin(42)+'</div>'
+        +   '<div style="line-height:1.15">'
+        +     '<div style="font-size:30px;font-weight:800;color:var(--accent)">'+coins+' <span style="font-size:14px;font-weight:600;color:var(--muted2)">monedas</span></div>'
+        +     '<div style="color:var(--muted);font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.1em">tu saldo disponible</div>'
+        +   '</div>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,rgba(255,140,0,.14),rgba(255,90,0,.05));border:1px solid rgba(255,140,0,.35);padding:8px 14px;border-radius:99px;color:#ff9b3d;font-weight:700;font-size:13.5px">🔥 Racha de '+streak+' días</div>'
         + '</div>';
 
   // RECOMPENSAS DISPONIBLES
@@ -5172,5 +5177,25 @@ body.light a[style*="background:var(--accent)"]:hover,
 body.light button[style*="background: var(--accent)"]:hover,
 body.light a[style*="background: var(--accent)"]:hover{ background:#00d877 !important; }
 </style>
+<script>
+(function(){
+  var pop=null, onDoc=null;
+  function close(){ if(pop){ pop.remove(); pop=null; } if(onDoc){ document.removeEventListener('click', onDoc); onDoc=null; } }
+  function show(anchor, html){
+    close();
+    pop=document.createElement('div');
+    pop.style.cssText='position:fixed;z-index:10001;max-width:262px;background:var(--s2);border:1px solid var(--border2);border-radius:12px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--muted2);box-shadow:0 12px 34px rgba(0,0,0,.5)';
+    pop.innerHTML=html;
+    document.body.appendChild(pop);
+    var r=anchor.getBoundingClientRect();
+    var left=r.right-pop.offsetWidth; if(left<10) left=10;
+    pop.style.top=(r.bottom+8)+'px'; pop.style.left=left+'px';
+    onDoc=function(e){ if(pop && !pop.contains(e.target) && !anchor.contains(e.target)){ close(); } };
+    setTimeout(function(){ document.addEventListener('click', onDoc); },0);
+  }
+  window.toggleStreakInfo=function(ev){ ev.stopPropagation(); if(pop){ close(); return; } show(ev.currentTarget, '<b style="color:#ff9b3d">🔥 Tu racha</b><br>Suma <b>1 día</b> cada vez que entras a la plataforma. Si te saltas un día, la racha vuelve a empezar desde 1.'); };
+  window.toggleCoinInfo=function(ev){ ev.stopPropagation(); if(pop){ close(); return; } show(ev.currentTarget, '<b style="color:#f5b50a">🪙 Tus monedas</b><br>Ganas <b>1 moneda</b> por cada día de racha. Canjéalas por recompensas; al canjear tu saldo baja, pero la racha no se ve afectada.'); };
+})();
+</script>
 </body>
 </html>
