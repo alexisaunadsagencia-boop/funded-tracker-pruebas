@@ -5193,7 +5193,7 @@ body.light a[style*="background: var(--accent)"]:hover{ background:#00d877 !impo
     onDoc=function(e){ if(pop && !pop.contains(e.target) && !anchor.contains(e.target)){ close(); } };
     setTimeout(function(){ document.addEventListener('click', onDoc); },0);
   }
-  window.toggleStreakInfo=function(ev){ ev.stopPropagation(); if(pop){ close(); return; } show(ev.currentTarget, '<b style="color:#ff9b3d">🔥 Tu racha</b><br>Suma <b>1 día</b> cada vez que entras a la plataforma. Si te saltas un día, la racha vuelve a empezar desde 1.'); };
+  window.toggleStreakInfo=function(ev){ ev.stopPropagation(); if(pop){ close(); return; } show(ev.currentTarget, '<b style="color:#ff9b3d">🔥 Tu racha</b><br>Suma <b>1 día</b> cada vez que entras a la plataforma. Si te saltas un día, la racha vuelve a empezar desde 1 y <b>pierdes todas las monedas acumuladas</b>.'); };
   window.toggleCoinInfo=function(ev){ ev.stopPropagation(); if(pop){ close(); return; } show(ev.currentTarget, '<b style="color:#f5b50a">🪙 Tus monedas</b><br>Ganas <b>1 moneda</b> por cada día de racha. Canjéalas por recompensas; al canjear tu saldo baja, pero la racha no se ve afectada.'); };
 })();
 </script>
