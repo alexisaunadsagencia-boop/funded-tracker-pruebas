@@ -5151,5 +5151,26 @@ window.deleteNovedad=async function(id){
 // al iniciar sesión: cargar novedades y actualizar la campanita
 (function(){ let n=0; const iv=setInterval(function(){ if(window._user){ clearInterval(iv); loadNovedades().then(()=>updateNovBadge()); } if(++n>50) clearInterval(iv); },400); })();
 </script>
+<style>
+/* === Arreglos visuales SOLO para modo día (light) === */
+/* Inputs del registro de evento: fondo claro y texto/placeholder visibles */
+body.light .ev-reg-input{ background:#fff !important; color:#0f1f12 !important; border-color:#c8d8c8 !important; }
+body.light .ev-reg-input:focus{ border-color:#007a45 !important; }
+body.light .ev-reg-input::placeholder{ color:#7a8a7e !important; }
+/* Botones verdes más vivos en modo día (el acento es oscuro en light) */
+body.light .btn-p{ background:#00c46a !important; color:#04150c !important; }
+body.light .btn-p:hover{ background:#00d877 !important; }
+body.light .bf{ background:#00c46a !important; }
+body.light .bf:hover{ background:#00a857 !important; }
+body.light #ev-reg-btn:not(:disabled){ background:#00c46a !important; color:#04150c !important; }
+body.light button[style*="background:var(--accent)"],
+body.light a[style*="background:var(--accent)"],
+body.light button[style*="background: var(--accent)"],
+body.light a[style*="background: var(--accent)"]{ background:#00c46a !important; }
+body.light button[style*="background:var(--accent)"]:hover,
+body.light a[style*="background:var(--accent)"]:hover,
+body.light button[style*="background: var(--accent)"]:hover,
+body.light a[style*="background: var(--accent)"]:hover{ background:#00d877 !important; }
+</style>
 </body>
 </html>
