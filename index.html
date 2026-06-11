@@ -1018,7 +1018,7 @@ body.light .note-card.color-orange:hover{border-color:rgba(210,110,0,.6)!importa
       </button>
     </div>
     <!-- Lista de eventos -->
-    <div id="ev-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px;width:100%;max-width:1160px;align-items:start;">
+    <div id="ev-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:18px;width:100%;max-width:1160px;align-items:start;">
       <div style="text-align:center;padding:60px 20px;color:var(--muted);">
         <div style="font-size:48px;margin-bottom:16px;opacity:.4;">📅</div>
         <div style="font-size:14px;font-weight:600;color:var(--muted2);">Cargando eventos...</div>
@@ -4765,6 +4765,30 @@ function renderCalculadora(){ onCalcInstrumentChange(); }
 </script>
 
 
+<!-- MODAL CREAR / EDITAR RECOMPENSA -->
+<div class="ov" id="ov-recompensa">
+  <div class="modal" style="max-width:540px">
+    <div class="mhdr" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span class="mtitle" id="rew-modal-title">🎁 Nueva recompensa</span>
+      <button class="mx" onclick="closeOv('recompensa')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">&#215;</button>
+    </div>
+    <div class="fg"><label class="fl">Título</label><input class="fi" id="rew-f-titulo" placeholder="Ej: Comunidad privada"></div>
+    <div class="fg"><label class="fl">Descripción</label><textarea class="fi" id="rew-f-desc" placeholder="Ej: Acceso de por vida a la comunidad privada de NQ Project" style="min-height:70px;resize:vertical;font-family:var(--font)"></textarea></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Costo (monedas)</label><input class="fi" id="rew-f-costo" type="number" min="1" placeholder="15"></div>
+      <div class="fg"><label class="fl">Estado</label><label style="display:flex;gap:8px;align-items:center;height:42px;color:var(--text);font-size:14px;cursor:pointer"><input type="checkbox" id="rew-f-activo" checked style="width:18px;height:18px;accent-color:var(--accent)"> Activa</label></div>
+    </div>
+    <div class="fg"><label class="fl">Link de WhatsApp para el canje <small style="text-transform:none;letter-spacing:0;color:var(--muted)">(opcional — si lo dejas vacío se usa tu número con un mensaje automático)</small></label><input class="fi" id="rew-f-link" type="url" placeholder="Ej: https://wa.link/abc123"></div>
+    <div class="fg"><label class="fl">Link de video <small style="text-transform:none;letter-spacing:0;color:var(--muted)">(opcional — ej: YouTube)</small></label><input class="fi" id="rew-f-video" type="url" placeholder="Ej: https://youtu.be/..."></div>
+    <div class="fg"><label class="fl">Imagen (opcional)</label>
+      <div id="rew-f-img-preview-wrap" style="display:none;position:relative;border-radius:8px;overflow:hidden;margin-bottom:8px"><img id="rew-f-img-preview" src="" style="width:100%;height:auto;display:block"><button onclick="clearRewImg()" title="Quitar imagen" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);border:none;color:#fff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center">&#215;</button></div>
+      <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px dashed rgba(0,229,122,.25);border-radius:8px;padding:11px 14px;cursor:pointer;font-size:13px;color:var(--muted)"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span id="rew-f-img-label" style="color:var(--muted2)">Subir imagen (opcional)</span><input type="file" id="rew-f-img-file" accept="image/*" style="display:none" onchange="previewRewImg(this)"></label>
+      <input type="hidden" id="rew-f-img">
+    </div>
+    <button onclick="saveReward()" style="width:100%;background:var(--accent);color:#04150c;border:none;padding:13px 20px;border-radius:11px;font-weight:700;cursor:pointer;font-family:var(--font);font-size:15px;margin-top:6px">Guardar recompensa</button>
+  </div>
+</div>
+
 <!-- ===== NQ — Sistema de Recompensas (monedas diarias estilo Duolingo) ===== -->
 <script type="module">
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -4780,6 +4804,7 @@ function _rwYmd(s){ const p=String(s).split('-'); return new Date(+p[0], +p[1]-1
 function _rwDiff(a,b){ return Math.round((_rwYmd(b)-_rwYmd(a))/86400000); }
 function _rwEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function _rwVal(id){ const e=document.getElementById(id); return e?(e.value||'').trim():''; }
+function _rwSet(id,v){ const e=document.getElementById(id); if(e) e.value=(v==null?'':v); }
 function _coin(sz){ return '<svg viewBox="0 0 24 24" width="'+sz+'" height="'+sz+'" style="vertical-align:middle;margin:0 1px"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg>'; }
 
 window._tokens = { streak:0, spent:0, lastClaim:null };
@@ -4855,7 +4880,7 @@ window.renderRecompensas=function(){
         + '</div>';
 
   // RECOMPENSAS DISPONIBLES
-  html += '<div style="margin-top:22px;margin-bottom:14px"><span style="font-size:20px;font-weight:800;color:var(--text)">🎁 Recompensas disponibles</span></div>';
+  html += '<div style="margin-top:22px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:20px;font-weight:800;color:var(--text)">🎁 Recompensas disponibles</span>'+(rewIsAdmin()?'<button onclick="openNewRewardModal()" style="display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#04150c;border:none;padding:9px 16px;border-radius:10px;font-weight:700;cursor:pointer;font-family:var(--font);font-size:13px">+ Crear recompensa</button>':'')+'</div>';
   if(!active.length){
     html += '<div class="card" style="text-align:center;color:var(--muted2);padding:28px 16px"><div style="font-size:42px">⏳</div><div style="font-weight:700;color:var(--text);margin-top:8px;font-size:16px">Aún no hay recompensas disponibles</div><div style="font-size:13px;margin-top:6px">¡Sigue entrando cada día y acumulando monedas!</div></div>';
   } else {
@@ -4864,37 +4889,32 @@ window.renderRecompensas=function(){
       const cost=r.costo||0, can=coins>=cost, falta=Math.max(0,cost-coins);
       html += '<div onmouseover="this.style.transform=\'translateY(-4px)\';this.style.boxShadow=\'0 18px 44px rgba(0,229,122,.13)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 8px 30px rgba(0,0,0,.35)\'" style="position:relative;border:1px solid var(--border2);border-radius:18px;overflow:hidden;background:linear-gradient(160deg,rgba(0,229,122,.08),rgba(0,0,0,0));box-shadow:0 8px 30px rgba(0,0,0,.35);transition:transform .2s,box-shadow .2s;display:flex;flex-direction:column">'
             + '<div style="height:5px;background:linear-gradient(90deg,#00b894,#00e57a)"></div>'
+            + (r.imagen?'<img src="'+r.imagen+'" style="width:100%;height:auto;display:block">':'')
             + '<div style="padding:22px;display:flex;flex-direction:column;flex:1">'
             + '<div style="display:flex;align-items:center;gap:13px;margin-bottom:12px"><div style="width:50px;height:50px;border-radius:14px;background:rgba(0,229,122,.12);border:1px solid rgba(0,229,122,.25);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🎁</div><div style="font-size:20px;font-weight:800;color:var(--text);line-height:1.2">'+_rwEsc(r.titulo||'')+'</div></div>'
             + (r.descripcion?'<div style="color:var(--muted2);font-size:14px;line-height:1.6;margin-bottom:18px">'+_rwEsc(r.descripcion)+'</div>':'<div style="margin-bottom:14px"></div>')
             + '<div style="display:inline-flex;align-items:center;gap:7px;align-self:flex-start;background:var(--s2);border:1px solid var(--border2);padding:7px 14px;border-radius:99px;font-family:var(--mono);font-size:15px;font-weight:700;margin-bottom:18px"><span style="color:var(--muted);font-weight:400;font-size:13px">Cuesta</span> '+cost+' '+_coin(17)+'</div>'
+            + (r.video?'<a href="'+_rwEsc(r.video)+'" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:12px;background:#ff0000;color:#fff;text-decoration:none;padding:11px 16px;border-radius:11px;font-weight:700;font-size:14px"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Ver video</a>':'')
             + '<button onclick="redeemReward(\''+r.id+'\')" '+(can?'':'disabled')+' style="margin-top:auto;background:'+(can?'#25D366':'var(--s2)')+';color:'+(can?'#fff':'var(--muted)')+';border:none;padding:14px 18px;border-radius:12px;font-weight:700;cursor:'+(can?'pointer':'not-allowed')+';font-family:var(--font);font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:'+(can?'0 6px 18px rgba(37,211,102,.3)':'none')+'">'
             + (can?'<svg viewBox="0 0 24 24" fill="currentColor" width="19" height="19"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.523 5.26l-.999 3.648 3.965-1.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg> Canjear ahora':'🔒 Te faltan '+falta+' monedas')
-            + '</button></div></div>';
+            + '</button>'
+            + (rewIsAdmin()?'<button onclick="openEditRewardModal(\''+r.id+'\')" style="margin-top:10px;background:var(--s2);color:var(--text);border:1px solid var(--border2);padding:10px;border-radius:10px;font-weight:600;cursor:pointer;font-family:var(--font);font-size:13px">✏️ Editar</button>':'')
+            + '</div></div>';
     });
     html += '</div>';
   }
 
   // ADMIN
   if(rewIsAdmin()){
-    html += '<div class="card" style="margin-top:16px;border-color:rgba(0,229,122,.3)">'
-          + '<div class="ct">⚙️ Admin — Crear recompensa</div>'
-          + '<div class="fg"><label class="fl">Título</label><input class="fi" id="rew-new-titulo" placeholder="Ej: Comunidad privada"></div>'
-          + '<div class="fg"><label class="fl">Descripción</label><input class="fi" id="rew-new-desc" placeholder="Ej: Acceso de por vida a la comunidad privada de NQ Project"></div>'
-          + '<div class="fr"><div class="fg"><label class="fl">Costo (monedas)</label><input class="fi" id="rew-new-costo" type="number" min="1" placeholder="15"></div>'
-          + '<div class="fg"><label class="fl">Estado</label><label style="display:flex;gap:8px;align-items:center;height:42px;color:var(--text);font-size:14px;cursor:pointer"><input type="checkbox" id="rew-new-activo" checked style="width:18px;height:18px;accent-color:var(--accent)"> Activa</label></div></div>'
-          + '<div class="fg"><label class="fl">Link de WhatsApp <small style="text-transform:none;letter-spacing:0;color:var(--muted)">(opcional — pega tu propio link con el mensaje que quieras; si lo dejas vacío se usa tu número con un mensaje automático)</small></label><input class="fi" id="rew-new-link" placeholder="Ej: https://wa.link/abc123"></div>'
-          + '<button onclick="addReward()" style="background:var(--accent);color:#04150c;border:none;padding:12px 20px;border-radius:11px;font-weight:700;cursor:pointer;font-family:var(--font)">Crear recompensa</button>'
-          + '</div>';
-
     // lista de recompensas (todas)
     html += '<div class="card" style="margin-top:16px"><div class="ct">📦 Recompensas creadas ('+all.length+')</div>';
-    if(!all.length){ html += '<div style="color:var(--muted);font-size:13px">Aún no has creado recompensas.</div>'; }
+    if(!all.length){ html += '<div style="color:var(--muted);font-size:13px">Aún no has creado recompensas. Usa el botón “+ Crear recompensa”.</div>'; }
     else {
       all.forEach(r=>{
         html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid var(--border);padding:10px 0">'
               + '<div><b style="color:var(--text)">'+_rwEsc(r.titulo||'')+'</b> <span style="color:var(--muted);font-size:12px;font-family:var(--mono)">· '+(r.costo||0)+' monedas · '+(r.activo?'<span style="color:var(--accent)">activa</span>':'<span style="color:var(--muted)">inactiva</span>')+'</span></div>'
-              + '<div style="display:flex;gap:6px">'
+              + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+              + '<button onclick="openEditRewardModal(\''+r.id+'\')" style="background:var(--s2);color:var(--text);border:1px solid var(--border2);padding:7px 12px;border-radius:9px;cursor:pointer;font-size:12px">✏️ Editar</button>'
               + '<button onclick="toggleReward(\''+r.id+'\')" style="background:var(--s2);color:var(--text);border:1px solid var(--border2);padding:7px 12px;border-radius:9px;cursor:pointer;font-size:12px">'+(r.activo?'Desactivar':'Activar')+'</button>'
               + '<button onclick="deleteReward(\''+r.id+'\')" style="background:rgba(255,80,80,.12);color:#ff6b6b;border:1px solid rgba(255,80,80,.3);padding:7px 12px;border-radius:9px;cursor:pointer;font-size:12px">Eliminar</button>'
               + '</div></div>';
@@ -4941,17 +4961,45 @@ window.redeemReward = async function(id){
 };
 
 // ---- admin: crear / activar / eliminar ----
-window.addReward = async function(){
+window.openNewRewardModal=function(){
   if(!rewIsAdmin()) return;
-  const titulo=_rwVal('rew-new-titulo'), descripcion=_rwVal('rew-new-desc'), link=_rwVal('rew-new-link');
-  const costo=parseInt(_rwVal('rew-new-costo'),10);
-  const activo=document.getElementById('rew-new-activo').checked;
+  window._editingRewardId=null;
+  const t=document.getElementById('rew-modal-title'); if(t) t.textContent='🎁 Nueva recompensa';
+  _rwSet('rew-f-titulo',''); _rwSet('rew-f-desc',''); _rwSet('rew-f-costo',''); _rwSet('rew-f-link',''); _rwSet('rew-f-video','');
+  const a=document.getElementById('rew-f-activo'); if(a) a.checked=true;
+  clearRewImg();
+  openOv('recompensa');
+};
+window.openEditRewardModal=function(id){
+  if(!rewIsAdmin()) return;
+  const r=(window._rewards||[]).find(x=>x.id===id); if(!r) return;
+  window._editingRewardId=id;
+  const t=document.getElementById('rew-modal-title'); if(t) t.textContent='✏️ Editar recompensa';
+  _rwSet('rew-f-titulo',r.titulo||''); _rwSet('rew-f-desc',r.descripcion||''); _rwSet('rew-f-costo',r.costo||''); _rwSet('rew-f-link',r.link||''); _rwSet('rew-f-video',r.video||'');
+  const a=document.getElementById('rew-f-activo'); if(a) a.checked=!!r.activo;
+  if(r.imagen){ setRewImgPreview(r.imagen); } else { clearRewImg(); }
+  openOv('recompensa');
+};
+window.saveReward=async function(){
+  if(!rewIsAdmin()) return;
+  const titulo=_rwVal('rew-f-titulo'), descripcion=_rwVal('rew-f-desc');
+  let link=_rwVal('rew-f-link'); if(link && !/^https?:\/\//i.test(link)) link='https://'+link;
+  let video=_rwVal('rew-f-video'); if(video && !/^https?:\/\//i.test(video)) video='https://'+video;
+  const imgEl=document.getElementById('rew-f-img'); const imagen=(imgEl&&imgEl.value)?imgEl.value:'';
+  const costo=parseInt(_rwVal('rew-f-costo'),10);
+  const activo=document.getElementById('rew-f-activo').checked;
   if(!titulo){ alert('Ponle un título a la recompensa.'); return; }
   if(!costo || costo<=0){ alert('Indica un costo válido en monedas.'); return; }
-  try{ await addDoc(collection(db5,'recompensas'), { titulo, descripcion, costo, link, activo, creadoEn:new Date().toISOString() });
-    await refreshRecompensas(); alert('Recompensa creada'+(activo?' y activada ✓':' (inactiva).'));
-  }catch(e){ alert('Error al crear: '+e.message); }
+  const data={ titulo, descripcion, costo, link, video, imagen, activo };
+  try{
+    if(window._editingRewardId){ await setDoc(doc(db5,'recompensas',window._editingRewardId), data, { merge:true }); }
+    else { data.creadoEn=new Date().toISOString(); await addDoc(collection(db5,'recompensas'), data); }
+    window._editingRewardId=null; closeOv('recompensa'); await refreshRecompensas();
+  }catch(e){ alert('Error al guardar: '+e.message); }
 };
+function setRewImgPreview(src){ const hid=document.getElementById('rew-f-img'); if(hid) hid.value=src||''; const prev=document.getElementById('rew-f-img-preview'), wrap=document.getElementById('rew-f-img-preview-wrap'); if(prev) prev.src=src||''; if(wrap) wrap.style.display=src?'block':'none'; }
+window.previewRewImg=function(input){ const file=input.files&&input.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=e=>{ const img=new Image(); img.onload=()=>{ const c=document.createElement('canvas'); const MAX=900; let w=img.width,h=img.height; if(w>MAX){ h=Math.round(h*MAX/w); w=MAX; } c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); setRewImgPreview(c.toDataURL('image/jpeg',0.82)); const lbl=document.getElementById('rew-f-img-label'); if(lbl) lbl.textContent=file.name; }; img.src=e.target.result; }; reader.readAsDataURL(file); };
+window.clearRewImg=function(){ const f=document.getElementById('rew-f-img-file'); if(f) f.value=''; setRewImgPreview(''); const lbl=document.getElementById('rew-f-img-label'); if(lbl) lbl.textContent='Subir imagen (opcional)'; };
 window.toggleReward = async function(id){
   if(!rewIsAdmin()) return;
   const r=(window._rewards||[]).find(x=>x.id===id); if(!r) return;
