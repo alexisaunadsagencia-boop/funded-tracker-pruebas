@@ -5025,6 +5025,10 @@ window.renderNovedades=function(){
         +'<div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:10px;font-family:var(--mono);letter-spacing:.06em">⚙️ PUBLICAR NOVEDAD</div>'
         +'<input class="fi" id="nov-titulo" placeholder="Título (ej: ¡Nueva calculadora de contratos!)" style="margin-bottom:8px">'
         +'<textarea class="fi" id="nov-desc" placeholder="Cuenta qué agregaron o mejoraron en la plataforma..." style="min-height:72px;resize:vertical;font-family:var(--font);margin-bottom:10px"></textarea>'
+        +'<input class="fi" id="nov-link" type="url" placeholder="Link (opcional) — ej: video de YouTube  https://youtu.be/..." style="margin-bottom:10px">'
+        +'<div id="nov-img-preview-wrap" style="display:none;position:relative;border-radius:8px;overflow:hidden;margin-bottom:10px"><img id="nov-img-preview" src="" style="width:100%;height:auto;display:block"><button onclick="clearNovImg()" title="Quitar imagen" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);border:none;color:#fff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center">&#215;</button></div>'
+        +'<label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px dashed rgba(0,229,122,.25);border-radius:8px;padding:11px 14px;cursor:pointer;font-size:13px;color:var(--muted);margin-bottom:12px"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span id="nov-img-label" style="color:var(--muted2)">Subir imagen (opcional)</span><input type="file" id="nov-img-file" accept="image/*" style="display:none" onchange="previewNovImg(this)"></label>'
+        +'<input type="hidden" id="nov-img">'
         +'<button onclick="postNovedad()" style="background:var(--accent);color:#04150c;border:none;padding:10px 18px;border-radius:10px;font-weight:700;cursor:pointer;font-family:var(--font)">Publicar novedad</button>'
         +'</div>';
     } else { adminEl.innerHTML=''; }
@@ -5036,24 +5040,43 @@ window.renderNovedades=function(){
   list.forEach(n=>{
     const f=n.fecha?new Date(n.fecha).toLocaleDateString('es-CO',{day:'numeric',month:'short',year:'numeric'}):'';
     html+='<div style="border-left:3px solid var(--accent);background:var(--s1);border-radius:10px;padding:14px 16px;margin-bottom:12px">'
+      +(n.imagen?'<img src="'+n.imagen+'" style="width:100%;height:auto;display:block;border-radius:8px;margin-bottom:11px">':'')
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'
       +'<div style="font-weight:700;color:var(--text);font-size:15px">'+_novEsc(n.titulo||'')+'</div>'
       +(novIsAdmin()?'<button onclick="deleteNovedad(\''+n.id+'\')" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:12px;flex-shrink:0">Eliminar</button>':'')
       +'</div>'
       +(n.descripcion?'<div style="color:var(--muted2);font-size:13.5px;line-height:1.65;margin-top:6px;white-space:pre-wrap">'+_novEsc(n.descripcion)+'</div>':'')
-      +'<div style="color:var(--muted);font-size:11px;font-family:var(--mono);margin-top:9px">'+f+'</div>'
+      +(n.link?'<a href="'+_novEsc(n.link)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:7px;margin-top:11px;background:#ff0000;color:#fff;text-decoration:none;padding:8px 14px;border-radius:9px;font-weight:700;font-size:13px"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Ver video</a>':'')
+      +'<div style="color:var(--muted);font-size:11px;font-family:var(--mono);margin-top:10px">'+f+'</div>'
       +'</div>';
   });
   listEl.innerHTML=html;
 };
 
+window.previewNovImg=function(input){
+  const file=input.files&&input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{ const img=new Image(); img.onload=()=>{ const canvas=document.createElement('canvas'); const MAX=900; let w=img.width,h=img.height; if(w>MAX){ h=Math.round(h*MAX/w); w=MAX; } canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h); const b64=canvas.toDataURL('image/jpeg',0.82); const hid=document.getElementById('nov-img'); if(hid)hid.value=b64; const prev=document.getElementById('nov-img-preview'); const wrap=document.getElementById('nov-img-preview-wrap'); const lbl=document.getElementById('nov-img-label'); if(prev)prev.src=b64; if(wrap)wrap.style.display='block'; if(lbl)lbl.textContent=file.name; }; img.src=e.target.result; };
+  reader.readAsDataURL(file);
+};
+window.clearNovImg=function(){
+  const hid=document.getElementById('nov-img'); if(hid)hid.value='';
+  const f=document.getElementById('nov-img-file'); if(f)f.value='';
+  const prev=document.getElementById('nov-img-preview'), wrap=document.getElementById('nov-img-preview-wrap'), lbl=document.getElementById('nov-img-label');
+  if(prev)prev.src=''; if(wrap)wrap.style.display='none'; if(lbl)lbl.textContent='Subir imagen (opcional)';
+};
 window.postNovedad=async function(){
   if(!novIsAdmin()) return;
   const titulo=(document.getElementById('nov-titulo').value||'').trim();
   const descripcion=(document.getElementById('nov-desc').value||'').trim();
+  const linkEl=document.getElementById('nov-link');
+  let link=(linkEl&&linkEl.value?linkEl.value:'').trim();
+  if(link && !/^https?:\/\//i.test(link)) link='https://'+link;
+  const imgEl=document.getElementById('nov-img');
+  const imagen=(imgEl&&imgEl.value)?imgEl.value:'';
   if(!titulo){ alert('Ponle un título a la novedad.'); return; }
   try{
-    await addDoc(collection(db6,'novedades'), { titulo, descripcion, fecha:new Date().toISOString() });
+    await addDoc(collection(db6,'novedades'), { titulo, descripcion, link, imagen, fecha:new Date().toISOString() });
     await loadNovedades(); renderNovedades();
     const latest=(window._novedades||[]).reduce((m,n)=>((n.fecha||'')>m?(n.fecha||''):m),''); if(latest) _novSetSeen(latest);
     updateNovBadge();
