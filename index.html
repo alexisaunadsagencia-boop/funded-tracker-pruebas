@@ -735,7 +735,7 @@ body.light .note-card.color-orange:hover{border-color:rgba(210,110,0,.6)!importa
   <div class="tab" onclick="goTab('recompensas')"><svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin:0 1px"><circle cx="12" cy="12" r="11" fill="#f5b50a" stroke="#c8890a" stroke-width="1.5"/><circle cx="12" cy="12" r="8.2" fill="none" stroke="#e0a800" stroke-width="1"/><text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="bold" fill="#7a5200" font-family="Arial,sans-serif">$</text></svg> Recompensas <span id="coin-badge" style="display:inline-block;min-width:18px;padding:1px 6px;margin-left:4px;border-radius:99px;background:var(--accent);color:#04150c;font-size:11px;font-weight:800;text-align:center">0</span></div>
   <div class="tab" onclick="goTab('notas')">📝 Notas</div>
   <div class="tab" onclick="goTab('eventos')" id="tab-eventos" style="position:relative;">
-    <span id="ev-bell" style="display:none;vertical-align:middle;margin-right:3px"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="vertical-align:middle"><path d="M12 2a6 6 0 00-6 6v3.586L4.293 13.293A1 1 0 005 15h14a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6zm0 20a3 3 0 002.995-2.824L15 19H9a3 3 0 003 3z"/></svg></span>📅 Eventos<span id="ev-count" style="display:none;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:5px;border-radius:99px;background:#ffc840;color:#1a1200;font-size:10px;font-weight:800;vertical-align:middle">0</span>
+    📅 Eventos<span id="ev-count" style="display:none;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:5px;border-radius:99px;background:#ffc840;color:#1a1200;font-size:10px;font-weight:800;vertical-align:middle">0</span>
   </div>
 </div>
 
@@ -3177,7 +3177,6 @@ function isAdmin() {
 // ── ACTUALIZAR DOT EN TAB ──
 function updateEvDot(eventos) {
   const tab=document.getElementById('tab-eventos');
-  const bell=document.getElementById('ev-bell');
   const count=document.getElementById('ev-count');
   if(!tab) return;
   const live=eventos.filter(e=>e.estado==='live').length;
@@ -3186,11 +3185,9 @@ function updateEvDot(eventos) {
   if(total>0){
     tab.classList.add('tab-evt-on');
     tab.style.setProperty('--evt-glow', live>0?'rgba(255,64,96,.55)':'rgba(255,200,64,.5)');
-    if(bell){ bell.style.display='inline-block'; bell.style.color = live>0?'#ff4060':'#ffc840'; }
     if(count){ count.style.display='inline-flex'; count.textContent=String(total); count.style.background= live>0?'#ff4060':'#ffc840'; count.style.color= live>0?'#fff':'#1a1200'; }
   } else {
     tab.classList.remove('tab-evt-on');
-    if(bell) bell.style.display='none';
     if(count) count.style.display='none';
   }
 }
@@ -4965,6 +4962,8 @@ window.deleteReward = async function(id){
 .tab-evt-on{ animation:evtGlow 1.7s ease-in-out infinite; border-radius:8px; }
 @keyframes evtGlow{ 0%,100%{ box-shadow:0 0 0 rgba(0,0,0,0);} 50%{ box-shadow:0 0 16px var(--evt-glow,rgba(255,200,64,.5)); } }
 #nov-bell:hover{ filter:brightness(1.18); }
+@keyframes novRing{ 0%,100%{transform:rotate(0)} 8%,24%{transform:rotate(-13deg)} 16%,32%{transform:rotate(13deg)} 40%{transform:rotate(0)} }
+#nov-bell.nov-ring svg{ animation:novRing 1.3s ease-in-out infinite; transform-origin:50% 4px; }
 </style>
 
 <!-- MODAL NOVEDADES -->
@@ -4995,11 +4994,13 @@ function _novSetSeen(ts){ try{ localStorage.setItem('nq_nov_seen', ts); }catch(e
 async function loadNovedades(){ try{ const q=query(collection(db6,'novedades'),orderBy('fecha','desc')); const snap=await getDocs(q); window._novedades=snap.docs.map(d=>Object.assign({id:d.id}, d.data())); }catch(e){ window._novedades=[]; } }
 
 window.updateNovBadge=function(){
-  const badge=document.getElementById('nov-badge'); if(!badge) return;
+  const badge=document.getElementById('nov-badge');
+  const bell=document.getElementById('nov-bell');
+  if(!badge) return;
   const seen=_novSeen();
   const unread=(window._novedades||[]).filter(n=>!seen || (n.fecha||'')>seen).length;
-  if(unread>0){ badge.style.display='flex'; badge.textContent= unread>9?'9+':String(unread); }
-  else { badge.style.display='none'; }
+  if(unread>0){ badge.style.display='flex'; badge.textContent= unread>9?'9+':String(unread); if(bell) bell.classList.add('nov-ring'); }
+  else { badge.style.display='none'; if(bell) bell.classList.remove('nov-ring'); }
 };
 
 window.openNovedades=async function(){
